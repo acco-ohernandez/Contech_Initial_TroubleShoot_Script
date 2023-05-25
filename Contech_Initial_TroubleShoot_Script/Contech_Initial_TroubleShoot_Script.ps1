@@ -1,19 +1,17 @@
 ﻿#
 # Script.ps1
 #
-$TimeString = (get-date).ToString("mmddyyyy_HHmmss")
+$TimeString = (Get-Date).ToString("mmddyyyy_HHmmss")
 $ScriptName = $MyInvocation.MyCommand.Name
 $ScriptPath = Split-Path -Parent -Path $script:MyInvocation.MyCommand.Path
 $Log = "$env:TEMP\Log_$ScriptName`_$TimeString.txt"
 Start-Transcript $Log
 
-
-
 #region 1- Get-CDriveSpace
 $Get_CDriveSpace_ScriptBlock = 
 {
     function Get-CDriveSpace {
-        Write-Output "============= Hard Drive Info:"
+        Write-Output "-********************  Hard Drive Info: ********************-"
         $drive = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'"
         $usedSpace = $drive.Size - $drive.FreeSpace
         $availableSpace = $drive.FreeSpace
@@ -25,8 +23,8 @@ $Get_CDriveSpace_ScriptBlock =
     
         $driveSpace = [PSCustomObject]@{
             C_Drive_UsedSpace = $usedSpaceGB
-            AvailableSpace = $availableSpaceGB
-            TotalSpace = $totalSpaceGB
+            AvailableSpace    = $availableSpaceGB
+            TotalSpace        = $totalSpaceGB
         }
         Start-Sleep -Seconds 2
         return $driveSpace
@@ -41,10 +39,10 @@ $Get_CDriveSpace_ScriptBlock =
 $GetGPUDriverInfo_ScriptBlock = 
 {
     function Get-GPUDriverInfo {
-         Write-Output "============= Video Driver Info:"
+        Write-Output "-********************  Video Driver Info: ********************-"
         $gpuDriver = Get-CimInstance -ClassName Win32_PnPSignedDriver -Filter "DeviceClass='Display'" |
-                     Where-Object {$_.DeviceName -like "*GPU*"} 
-                     #|Select-Object -First 1
+            Where-Object { $_.DeviceName -like "*GPU*" } 
+        #|Select-Object -First 1
     
         $Gpu_Name = $gpuDriver.DeviceName
         $driverVersion = $gpuDriver.DriverVersion
@@ -66,7 +64,7 @@ $GetGPUDriverInfo_ScriptBlock =
 $Get_AdskLicensingVersion_ScriptBlock = 
 {
     function Get-AdskLicensingVersion {
-         Write-Output "============= Adsk Licensing Version Info:"
+        Write-Output "-********************  Adsk Licensing Version Info: ********************-"
         $filePath = "C:\Program Files (x86)\Common Files\Autodesk Shared\AdskLicensing\version.ini"
     
         if (Test-Path $filePath) {
@@ -78,12 +76,14 @@ $Get_AdskLicensingVersion_ScriptBlock =
                 $result = [PSCustomObject]@{
                     AdskLicensingVersion = $version
                 }
-            } else {
+            }
+            else {
                 $result = [PSCustomObject]@{
                     AdskLicensingVersion = "No version information found in the file."
                 }
             }
-        } else {
+        }
+        else {
             $result = [PSCustomObject]@{
                 AdskLicensingVersion = "No AdskLicensing file found: $filePath"
             }
@@ -98,12 +98,11 @@ $Get_AdskLicensingVersion_ScriptBlock =
 #region 4- Get-DisplayCount
 $Get_DisplayCount_ScriptBlock = 
 {
-    function Get-DisplayCount
-    {
-        Write-Output "============= Screens/Displays Info:"
+    function Get-DisplayCount {
+        Write-Output "-********************  Screens/Displays Info: ********************-"
         $Displays = Get-CimInstance -Namespace "root\wmi" -ClassName WmiMonitorConnectionParams | select -ExpandProperty InstanceName
         $count = 0
-        $Displays | %{$count++; Write-Output "$($count)- $_.InstanceName"} 
+        $Displays | % { $count++; Write-Output "$($count)- $_.InstanceName" } 
         Start-Sleep -Seconds 2
     }
     Get-DisplayCount | Out-String | Select-Object -ExcludeProperty RunspaceId 
@@ -126,7 +125,7 @@ $Formated_RevitFolderSizes_scriptBlock = {
             "$env:USERPROFILE\Box\Box",
             "C:\Windows\IMECache",
             "C:\Autodesk"
-           "C:\Autodesk\WI"
+            "C:\Autodesk\WI"
     
     
     
@@ -159,9 +158,8 @@ $Formated_RevitFolderSizes_scriptBlock = {
     
     
     
-    function Formated-RevitFolderSizes
-    {
-        Write-Output "============= Folders Sizes Info:"
+    function Formated-RevitFolderSizes {
+        Write-Output "-********************  Folders Sizes Info: ********************-"
         $sizes = Get-RevitFolderSizes
         $sizes | Out-String | Write-Output
         
@@ -182,15 +180,15 @@ $Formated_RevitFolderSizes_scriptBlock = {
         Start-Sleep -Seconds 2
     }
     # Example usage:
-     Formated-RevitFolderSizes | Out-String | Select-Object -ExcludeProperty RunspaceId 
+    Formated-RevitFolderSizes | Out-String | Select-Object -ExcludeProperty RunspaceId 
 }
 #endregion ==================================================================================================
 
 #region 6- Check-AutodeskOdisRegistry
 $Check_AutodeskOdisRegistry_scriptBlock = 
 {
-    function Check-AutodeskOdisRegistry{
-        Write-Output "=============  Autodesk ODIS Registry Info:"
+    function Check-AutodeskOdisRegistry {
+        Write-Output "-********************   Autodesk ODIS Registry Info: ********************-"
         $registryPath = "HKCU:\SOFTWARE\Autodesk\ODIS"
         $registryValueName = "DisableManualUpdateInstall"
         $registryValueData = 1
@@ -199,11 +197,13 @@ $Check_AutodeskOdisRegistry_scriptBlock =
             $existingValue = Get-ItemProperty -Path $registryPath -Name $registryValueName -ErrorAction SilentlyContinue
             if ($existingValue -and $existingValue.$registryValueName -eq $registryValueData) {
                 Write-Output "Existing value: HKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1."
-            } else {
+            }
+            else {
                 Set-ItemProperty -Path $registryPath -Name $registryValueName -Value $registryValueData
                 Write-Output "Value updated: HKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1."
             }
-        } else {
+        }
+        else {
             New-Item -Path $registryPath -Force | Out-Null
             New-ItemProperty -Path $registryPath -Name $registryValueName -Value $registryValueData -PropertyType DWORD -Force | Out-Null
             Write-Output "Registry key and value added. `nHKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1"
@@ -215,10 +215,46 @@ $Check_AutodeskOdisRegistry_scriptBlock =
 }
 #endregion ==================================================================================================
 
+#region 7- PowerCFG_Off
+$PowerCFG_Off_ScriptBlock = 
+{
+    function PowerCFG-Off {
+        Write-Output "-********************  Hibernation status Info: ********************-"
+        # Check if hibernation is currently enabled in the registry
+        $hibernationEnabled = Get-ItemPropertyValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "HibernateEnabled"
+
+        if ($hibernationEnabled -eq 1) {
+            Write-Output "Hibernation is currently turned on."
+
+            # Disable hibernation using powercfg
+            Write-Output "Disabling hibernation..."
+            powercfg /h off | Out-Null
+            Start-Sleep -Milliseconds 200
+
+            # Check hibernation status again
+            $hibernationEnabled = Get-ItemPropertyValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "HibernateEnabled"
+    
+            if ($hibernationEnabled -eq 0) {
+                Write-Output "Hibernation is now turned off."
+            }
+            else {
+                Write-Output "Failed to turn off hibernation."
+            }
+        }
+        else {
+            Write-Output "Hibernation is currently turned off."
+        }
+
+    }
+    PowerCFG-Off | Out-String | Select-Object -ExcludeProperty RunspaceId 
+}
+    
+
+#endregion ==================================================================================================
 #############
-# ==================== Process all the scriptblocks ====================
 
 cls 
+#region ==================== Process all the scriptblocks ====================
 $jobs = & {
     # Start jobs for each script block
     $job1 = Start-Job -ScriptBlock $Get_CDriveSpace_ScriptBlock
@@ -227,9 +263,10 @@ $jobs = & {
     $job4 = Start-Job -ScriptBlock $Get_DisplayCount_ScriptBlock
     $job5 = Start-Job -ScriptBlock $Formated_RevitFolderSizes_scriptBlock
     $job6 = Start-Job -ScriptBlock $Check_AutodeskOdisRegistry_scriptBlock
+    $job7 = Start-Job -ScriptBlock $PowerCFG_Off_ScriptBlock
 
     # Return all the jobs
-    $job1, $job2, $job3, $job4, $job5, $job6
+    $job1, $job2, $job3, $job4, $job5, $job6, $job7
 }
 
 $colors = @('Green', 'Cyan')
@@ -288,12 +325,15 @@ do {
         Start-Process msedge $log
         Write-Host "Script complete." -ForegroundColor Green
         break
-    } elseif ($choice -eq 'n') {
+    }
+    elseif ($choice -eq 'n') {
         # User chose not to start the log file
         Write-Host "Script complete." -ForegroundColor Green
         break
-    } else {
+    }
+    else {
         # Invalid choice
         Write-Host "Invalid choice. `nPlease enter 'y' or 'n'." -ForegroundColor Yellow
     }
 } while ($true)
+#endregion
