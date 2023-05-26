@@ -7,12 +7,20 @@ $ScriptPath = Split-Path -Parent -Path $script:MyInvocation.MyCommand.Path
 $Log = "$env:TEMP\Log_$ScriptName`_$TimeString.txt"
 Start-Transcript $Log
 
+$InitalDriveInfoScriptBlock = {
+    Write-Host "                   -*******************************************************************-" -ForegroundColor Green      
+    Write-Host "                   -***                      Inital Drive Info:                     ***-" -ForegroundColor Green
+    Write-Host "                   -*******************************************************************-" -ForegroundColor Green
+    $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
+    $StartingUsedSpace = $drive.Size - $drive.FreeSpace  # <-- This variable is used at the end to Get the spece clened up on the drvie.
+} 
+
 #region 1- Get-CDriveSpace
 $Get_CDriveSpace_ScriptBlock = 
 {
     function Get-CDriveSpace {
-        Write-Output "-********************  Hard Drive Info: ********************-"
-        $drive = Get-WmiObject -Class Win32_LogicalDisk -Filter "DeviceID='C:'"
+        #NWrite-Output "============= Hard Drive Info:"
+        $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
         $usedSpace = $drive.Size - $drive.FreeSpace
         $availableSpace = $drive.FreeSpace
         $totalSpace = $drive.Size
@@ -29,7 +37,7 @@ $Get_CDriveSpace_ScriptBlock =
         Start-Sleep -Seconds 2
         return $driveSpace
     }
-    Get-CDriveSpace | Out-String | Select-Object -ExcludeProperty RunspaceId 
+    Get-CDriveSpace | Out-String | Write-Host -ForegroundColor Yellow
 }
     
 
@@ -38,23 +46,74 @@ $Get_CDriveSpace_ScriptBlock =
 #region 2- Get-GPUDriverInfo
 $GetGPUDriverInfo_ScriptBlock = 
 {
+#https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/dpi-related-apis-and-registry-settings?view=windows-11
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public class NativeMethods
+{
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDC(IntPtr hWnd);
+
+    [DllImport("gdi32.dll")]
+    public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr hWnd, IntPtr hdc);
+}
+
+public class ResolutionUtils
+{
+    public static void GetNativeResolution(out int horizontalDPI, out int verticalDPI)
+    {
+        IntPtr desktopDc = NativeMethods.GetDC(IntPtr.Zero);
+        horizontalDPI = NativeMethods.GetDeviceCaps(desktopDc, 88); // LOGPIXELSX
+        verticalDPI = NativeMethods.GetDeviceCaps(desktopDc, 90); // LOGPIXELSY
+        NativeMethods.ReleaseDC(IntPtr.Zero, desktopDc);
+    }
+}
+"@
+
+# Declare variables for DPI values
+$horizontalDPI = 0
+$verticalDPI = 0
+
+
+    function CalculateScaling ($CurrentVerticalResolution)
+    {
+       [Math]::Round( ($CurrentVerticalResolution / [int][System.Windows.Forms.SystemInformation]::VirtualScreen.Height) * 100, 2 ).ToString("0.##")
+    }
+
     function Get-GPUDriverInfo {
-        Write-Output "-********************  Video Driver Info: ********************-"
-        $gpuDriver = Get-CimInstance -ClassName Win32_PnPSignedDriver -Filter "DeviceClass='Display'" |
-            Where-Object { $_.DeviceName -like "*GPU*" } 
-        #|Select-Object -First 1
-    
-        $Gpu_Name = $gpuDriver.DeviceName
-        $driverVersion = $gpuDriver.DriverVersion
-        $driverDate = $gpuDriver.DriverDate.ToString("MM-dd-yyyy")
-    
-        $gpuDriverInfo = [PSCustomObject]@{
-            GPU_Name    = $Gpu_Name
-            GPU_Version = $driverVersion
-            GPU_VerDate = $driverDate
-        }
+        Write-Output "                   -*************************************************************-"
+        Write-Output "                   -***                  Video Driver Info:                   ***-"
+        Write-Output "                   -*************************************************************-"
+       
+        $VideoResults +=
+        Get-CimInstance -ClassName CIM_VideoController | 
+            select DeviceID,
+            Name,
+            DriverDate,
+            DriverVersion,
+            CurrentVerticalResolution,
+            CurrentHorizontalResolution,
+            CurrentNumberOfColors,
+            CurrentRefreshRate,
+            MaxRefreshRate,
+            @{Name = "Screen_Scale_Factor"; Expression = {(CalculateScaling $_.CurrentVerticalResolution)} },
+            PNPDeviceID | % { $_ ; "---"} | Out-String
+        
         Start-Sleep -Seconds 2
-        return $gpuDriverInfo
+        # Call the GetNativeResolution function
+        [ResolutionUtils]::GetNativeResolution([ref]$horizontalDPI, [ref]$verticalDPI)
+        
+        # Display the results
+        $VideoResults +="Horizontal DPI: $horizontalDPI `n"
+        $VideoResults +="Vertical DPI: $verticalDPI"
+
+
+        return $VideoResults
     }
     Get-GPUDriverInfo | Out-String | Select-Object -ExcludeProperty RunspaceId 
 }
@@ -64,7 +123,9 @@ $GetGPUDriverInfo_ScriptBlock =
 $Get_AdskLicensingVersion_ScriptBlock = 
 {
     function Get-AdskLicensingVersion {
-        Write-Output "-********************  Adsk Licensing Version Info: ********************-"
+        Write-Output "                   -********************************************************************-"
+        Write-Output "                   -***                 Adsk Licensing Version Info:                 ***-"
+        Write-Output "                   -********************************************************************-"
         $filePath = "C:\Program Files (x86)\Common Files\Autodesk Shared\AdskLicensing\version.ini"
     
         if (Test-Path $filePath) {
@@ -99,7 +160,9 @@ $Get_AdskLicensingVersion_ScriptBlock =
 $Get_DisplayCount_ScriptBlock = 
 {
     function Get-DisplayCount {
-        Write-Output "-********************  Screens/Displays Info: ********************-"
+        Write-Output "                   -*****************************************************************-"
+        Write-Output "                   -***                    Displays List Info:                    ***-"
+        Write-Output "                   -*****************************************************************-"
         $Displays = Get-CimInstance -Namespace "root\wmi" -ClassName WmiMonitorConnectionParams | select -ExpandProperty InstanceName
         $count = 0
         $Displays | % { $count++; Write-Output "$($count)- $_.InstanceName" } 
@@ -159,7 +222,9 @@ $Formated_RevitFolderSizes_scriptBlock = {
     
     
     function Formated-RevitFolderSizes {
-        Write-Output "-********************  Folders Sizes Info: ********************-"
+        Write-Output "                   -**************************************************************-"
+        Write-Output "                   -***                  Folders Sizes Info:                   ***-"
+        Write-Output "                   -**************************************************************-"
         $sizes = Get-RevitFolderSizes
         $sizes | Out-String | Write-Output
         
@@ -188,7 +253,9 @@ $Formated_RevitFolderSizes_scriptBlock = {
 $Check_AutodeskOdisRegistry_scriptBlock = 
 {
     function Check-AutodeskOdisRegistry {
-        Write-Output "-********************   Autodesk ODIS Registry Info: ********************-"
+        Write-Output "                   -********************************************************************-"
+        Write-Output "                   -***                  Autodesk ODIS Registry Info:                ***-"
+        Write-Output "                   -********************************************************************-"
         $registryPath = "HKCU:\SOFTWARE\Autodesk\ODIS"
         $registryValueName = "DisableManualUpdateInstall"
         $registryValueData = 1
@@ -219,7 +286,9 @@ $Check_AutodeskOdisRegistry_scriptBlock =
 $PowerCFG_Off_ScriptBlock = 
 {
     function PowerCFG-Off {
-        Write-Output "-********************  Hibernation status Info: ********************-"
+        Write-Output "                   -*******************************************************************-"
+        Write-Output "                   -***                  Hibernation status Info:                   ***-"
+        Write-Output "                   -*******************************************************************-"
         # Check if hibernation is currently enabled in the registry
         $hibernationEnabled = Get-ItemPropertyValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "HibernateEnabled"
 
@@ -251,89 +320,159 @@ $PowerCFG_Off_ScriptBlock =
     
 
 #endregion ==================================================================================================
+
+#region 8- Delete C:\Autodesk\WI
+$DeleteAutodeskWI_ScriptBlock = 
+{
+    function DeleteAutodeskWI {
+        $outputString = "                    -*******************************************************************-`n"
+        $outputString += "                   -***                    Delete 'C:\Autodesk\WI'                  ***-`n"
+        $outputString += "                   -*******************************************************************-`n"
+        $FolderToDelete = "C:\Autodesk\WI - Copy"
+        $DelThisFolder = Get-Item -Path $FolderToDelete -ErrorAction SilentlyContinue                 # Get the folder item
+        if ($DelThisFolder) {
+            $outputString += "Found: $FolderToDelete `n"
+            $outputString += "Deleting: $FolderToDelete `n"
+            $DelThisFolder.Delete($true)                                        # Delete folder item with .NET Method
+        }
+        else {
+            $outputString += "$FolderToDelete - NOT FOUND! `n"
+        }
+        return $outputString
+    }
+    DeleteAutodeskWI #| Out-String | Select-Object -ExcludeProperty RunspaceId 
+}
+    
+#endregion ==================================================================================================
+
+#region 9- FinalDriveSpaceCheck
+$FinalDriveSpaceCheck_ScriptBlock = 
+{
+    function FinalDriveSpaceCheck {
+        $outputString = "$scriptCount $('='*80) `n"
+                
+        $outputString += "                   -*************************************************************-`n"
+        $outputString += "                   -***                  Final Drive Info:                    ***-`n"
+        $outputString += "                   -*************************************************************-`n"
+        $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
+        $EndingUsedSpace = $drive.Size - $drive.FreeSpace
+        $crearedSpace = $($StartingUsedSpace - $EndingUsedSpace)
+
+        $CleanedSpace = [PSCustomObject]@{
+            ClearedSpace_MB = [math]::Round($crearedSpace / 1MB, 2)
+            ClearedSpace_GB = [math]::Round($crearedSpace / 1GB, 2)
+        }
+
+        $outputString += $CleanedSpace | Out-String
+        $outputString
+
+    }
+    FinalDriveSpaceCheck | Out-String | Write-Host -ForegroundColor Yellow
+}
+    
+#endregion ==================================================================================================
 #############
+
+$ProcessAllScriptBlocksInBackgroundJobs = {
+    #==================== Process all Background Jobs process ====================
+    $jobs = & {
+        # Start jobs for each script block
+        #$job1 = Start-Job -ScriptBlock $Get_CDriveSpace_ScriptBlock            
+        $job2 = Start-Job -ScriptBlock $Get_DisplayCount_ScriptBlock
+        $job3 = Start-Job -ScriptBlock $GetGPUDriverInfo_ScriptBlock
+        $job4 = Start-Job -ScriptBlock $Get_AdskLicensingVersion_ScriptBlock
+        $job5 = Start-Job -ScriptBlock $Formated_RevitFolderSizes_scriptBlock
+        $job6 = Start-Job -ScriptBlock $Check_AutodeskOdisRegistry_scriptBlock
+        $job7 = Start-Job -ScriptBlock $PowerCFG_Off_ScriptBlock
+        $job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
+
+        # Return all the jobs
+        $job1, $job2, $job3, $job4, $job5, $job6, $job7, $job8
+    }
+
+    $colors = @('Green', 'Cyan')
+    $currentColorIndex = 0
+    $scriptCount = 0
+    Write-Host "Please wait while all scriptblocks are processed..." -ForegroundColor Yellow
+
+    while ($jobs.Count -gt 0) {
+        foreach ($job in $jobs) {
+            if ($job.State -eq 'Completed') {
+                # Retrieve the result from the completed job
+                $result = Receive-Job -Job $job
+                $color = $colors[$currentColorIndex]
+                $scriptCount++
+
+                "$scriptCount |$('-'*100)|" | Out-String | Write-Host -ForegroundColor $color
+                $result | Out-String | Write-Host -ForegroundColor $color
+
+                Write-Host "Next..." -ForegroundColor $color
+
+                # Remove the completed job from the job list
+                $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
+                $job | Remove-Job | Out-Null
+
+                # Switch to the next color
+                $currentColorIndex = ($currentColorIndex + 1) % $colors.Count
+            }
+            elseif ($job.State -eq 'Running') {
+                # Get the current progress of the job
+                $progress = $job.Progress
+
+                # Update the progress if available
+                if ($progress) {
+                    Write-Host "Job $($job.Id): $progress%"
+                }
+
+                # Wait for the job to complete
+                $job | Wait-Job -Timeout 1 | Out-Null
+            }
+        }
+
+        # Pause for a moment before checking again
+        Start-Sleep -Milliseconds 500
+    }
+}
+$PromptTheUserToStartTheLogInMicrosoftEdge_ScriptBlock = {
+
+
+    # Prompt the user to start the log in Microsoft Edge
+    do {
+        Write-Host "Do you want to start the log file in Microsoft Edge? (y/n)" -ForegroundColor Yellow
+        $choice = Read-Host "Enter your answer here -> "
+        if ($choice -eq 'y') {
+            # Start Microsoft Edge with the log file
+            Start-Process msedge $log
+            Write-Host "Script complete." -ForegroundColor Green
+            break
+        }
+        elseif ($choice -eq 'n') {
+            # User chose not to start the log file
+            Write-Host "Script complete." -ForegroundColor Green
+            break
+        }
+        else {
+            # Invalid choice
+            Write-Host "Invalid choice. `nPlease enter 'y' or 'n'." -ForegroundColor Yellow
+        }
+    } while ($true)
+}
 
 cls 
 #region ==================== Process all the scriptblocks ====================
-$jobs = & {
-    # Start jobs for each script block
-    $job1 = Start-Job -ScriptBlock $Get_CDriveSpace_ScriptBlock
-    $job2 = Start-Job -ScriptBlock $GetGPUDriverInfo_ScriptBlock
-    $job3 = Start-Job -ScriptBlock $Get_AdskLicensingVersion_ScriptBlock
-    $job4 = Start-Job -ScriptBlock $Get_DisplayCount_ScriptBlock
-    $job5 = Start-Job -ScriptBlock $Formated_RevitFolderSizes_scriptBlock
-    $job6 = Start-Job -ScriptBlock $Check_AutodeskOdisRegistry_scriptBlock
-    $job7 = Start-Job -ScriptBlock $PowerCFG_Off_ScriptBlock
+  
+& $InitalDriveInfoScriptBlock
 
-    # Return all the jobs
-    $job1, $job2, $job3, $job4, $job5, $job6, $job7
-}
+& $Get_CDriveSpace_ScriptBlock
 
-$colors = @('Green', 'Cyan')
-$currentColorIndex = 0
-$scriptCount = 0
-Write-Host "Please wait while all scriptblocks are processed..." -ForegroundColor Yellow
+& $ProcessAllScriptBlocksInBackgroundJobs # <-- Background Jobs process
 
-while ($jobs.Count -gt 0) {
-    foreach ($job in $jobs) {
-        if ($job.State -eq 'Completed') {
-            # Retrieve the result from the completed job
-            $result = Receive-Job -Job $job
-            $color = $colors[$currentColorIndex]
-            $scriptCount++
-            "$scriptCount $('='*80)" | Out-String | Write-Host -ForegroundColor $color
-            $result | Out-String | Write-Host -ForegroundColor $color
-            Write-Host "Next..." -ForegroundColor $color
+& $FinalDriveSpaceCheck_ScriptBlock
 
-            # Remove the completed job from the job list
-            $jobs = $jobs | Where-Object { $_.Id -ne $job.Id }
-            $job | Remove-Job | Out-Null
+& $Get_CDriveSpace_ScriptBlock
 
-            # Switch to the next color
-            $currentColorIndex = ($currentColorIndex + 1) % $colors.Count
-        }
-        elseif ($job.State -eq 'Running') {
-            # Get the current progress of the job
-            $progress = $job.Progress
+Stop-Transcript | Out-Null
+"=== DONE! ==="
+& $PromptTheUserToStartTheLogInMicrosoftEdge_ScriptBlock
 
-            # Update the progress if available
-            if ($progress) {
-                Write-Host "Job $($job.Id): $progress%"
-            }
-
-            # Wait for the job to complete
-            $job | Wait-Job -Timeout 1 | Out-Null
-        }
-    }
-
-    # Pause for a moment before checking again
-    Start-Sleep -Milliseconds 500
-}
-
-Write-Host "=== DONE! ===" -ForegroundColor Yellow
-Stop-Transcript
-
-#start msedge $log
-
-
-# Prompt the user to start the log in Microsoft Edge
-do {
-    Write-Host "Do you want to start the log file in Microsoft Edge? (y/n)" -ForegroundColor Yellow
-    $choice = Read-Host "Enter your answer here -> "
-    if ($choice -eq 'y') {
-        # Start Microsoft Edge with the log file
-        Start-Process msedge $log
-        Write-Host "Script complete." -ForegroundColor Green
-        break
-    }
-    elseif ($choice -eq 'n') {
-        # User chose not to start the log file
-        Write-Host "Script complete." -ForegroundColor Green
-        break
-    }
-    else {
-        # Invalid choice
-        Write-Host "Invalid choice. `nPlease enter 'y' or 'n'." -ForegroundColor Yellow
-    }
-} while ($true)
 #endregion
