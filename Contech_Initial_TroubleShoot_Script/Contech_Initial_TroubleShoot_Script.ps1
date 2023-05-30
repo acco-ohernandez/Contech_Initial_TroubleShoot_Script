@@ -118,7 +118,23 @@ public class ResolutionUtils
 }
 #endregion ==================================================================================================
 
-#region 3- Get-AdskLicensingVersion
+#region 3 - Get-DisplayCount
+$Get_DisplayCount_ScriptBlock = 
+{
+    function Get-DisplayCount {
+        Write-Output "                   -*****************************************************************-"
+        Write-Output "                   -***                    Displays List Info:                    ***-"
+        Write-Output "                   -*****************************************************************-"
+        $Displays = Get-CimInstance -Namespace "root\wmi" -ClassName WmiMonitorConnectionParams | select -ExpandProperty InstanceName
+        $count = 0
+        $Displays | % { $count++; Write-Output "$($count)- $_.InstanceName" } 
+        Start-Sleep -Seconds 2
+    }
+    Get-DisplayCount | Out-String | Select-Object -ExcludeProperty RunspaceId 
+}
+#endregion ==================================================================================================
+
+#region 4 - Get-AdskLicensingVersion
 $Get_AdskLicensingVersion_ScriptBlock = 
 {
     function Get-AdskLicensingVersion {
@@ -152,22 +168,6 @@ $Get_AdskLicensingVersion_ScriptBlock =
         return $result
     }
     Get-AdskLicensingVersion | Out-String | Select-Object -ExcludeProperty RunspaceId 
-}
-#endregion ==================================================================================================
-
-#region 4- Get-DisplayCount
-$Get_DisplayCount_ScriptBlock = 
-{
-    function Get-DisplayCount {
-        Write-Output "                   -*****************************************************************-"
-        Write-Output "                   -***                    Displays List Info:                    ***-"
-        Write-Output "                   -*****************************************************************-"
-        $Displays = Get-CimInstance -Namespace "root\wmi" -ClassName WmiMonitorConnectionParams | select -ExpandProperty InstanceName
-        $count = 0
-        $Displays | % { $count++; Write-Output "$($count)- $_.InstanceName" } 
-        Start-Sleep -Seconds 2
-    }
-    Get-DisplayCount | Out-String | Select-Object -ExcludeProperty RunspaceId 
 }
 #endregion ==================================================================================================
 
@@ -321,30 +321,93 @@ $PowerCFG_Off_ScriptBlock =
 #endregion ==================================================================================================
 
 #region 8- Delete C:\Autodesk\WI
+
 $DeleteAutodeskWI_ScriptBlock = 
 {
     function DeleteAutodeskWI {
-        $outputString = "                    -*******************************************************************-`n"
-        $outputString += "                   -***                    Delete 'C:\Autodesk\WI'                  ***-`n"
-        $outputString += "                   -*******************************************************************-`n"
-        $FolderToDelete = "C:\Autodesk\WI - Copy"
+        Write-Host "                   -*******************************************************************-" -ForegroundColor Yellow
+        Write-Host "                   -***                    Delete 'C:\Autodesk\WI'                  ***-" -ForegroundColor Yellow
+        Write-Host "                   -*******************************************************************-" -ForegroundColor Yellow
+
+        $FolderToDelete = "C:\Autodesk\WI"
+
         $DelThisFolder = Get-Item -Path $FolderToDelete -ErrorAction SilentlyContinue                 # Get the folder item
         if ($DelThisFolder) {
-            $outputString += "Found: $FolderToDelete `n"
-            $outputString += "Deleting: $FolderToDelete `n"
-            $DelThisFolder.Delete($true)                                        # Delete folder item with .NET Method
+            Write-Host "Found: $FolderToDelete" -ForegroundColor Yellow
+            
+            
+            # Display message box prompt to ask user for confirmation
+            $result = [System.Windows.MessageBox]::Show(
+                "Do you want to delete this folder?`n $FolderToDelete",
+                "Delete Folder",
+                "YesNo",
+                "Warning"
+            )
+            
+            if ($result -eq "Yes") {
+                Write-Host "Deleting: $FolderToDelete" -ForegroundColor Yellow
+                $DelThisFolder.Delete($true)  # Delete folder item with .NET Method
+                Write-Host "Folder deleted." -ForegroundColor Yellow
+            }
+            else {
+                Write-Host "Folder deletion canceled." -ForegroundColor Yellow
+            }
         }
         else {
-            $outputString += "$FolderToDelete - NOT FOUND! `n"
+            Write-Output "$FolderToDelete - NOT FOUND!" -ForegroundColor Yellow
         }
-        return $outputString
+        
+        
     }
-    DeleteAutodeskWI #| Out-String | Select-Object -ExcludeProperty RunspaceId 
+    
+    DeleteAutodeskWI
 }
+
+
+
+#$DeleteAutodeskWI_ScriptBlock = 
+#{
+#    function DeleteAutodeskWI {
+#        $outputString = "                    -*******************************************************************-`n"
+#        $outputString += "                   -***                    Delete 'C:\Autodesk\WI'                  ***-`n"
+#        $outputString += "                   -*******************************************************************-`n"
+#        $FolderToDelete = "C:\Autodesk\WI - Copy"
+#        $DelThisFolder = Get-Item -Path $FolderToDelete -ErrorAction SilentlyContinue                 # Get the folder item
+#        if ($DelThisFolder) {
+#            $outputString += "Found: $FolderToDelete `n"
+#            $outputString += "Deleting: $FolderToDelete `n"
+#            $DelThisFolder.Delete($true)                                        # Delete folder item with .NET Method
+#        }
+#        else {
+#            $outputString += "$FolderToDelete - NOT FOUND! `n"
+#        }
+#        return $outputString
+#    }
+#    DeleteAutodeskWI #| Out-String | Select-Object -ExcludeProperty RunspaceId 
+#}
     
 #endregion ==================================================================================================
 
-#region 9- FinalDriveSpaceCheck
+#region 9- AutodeskAppsVerifier
+$AutodeskAppsVerifier_ScriptBlock =
+{
+    Write-Output "                   -*************************************************************-"
+    Write-Output "                   -***                  Final Drive Info:                    ***-"
+    Write-Output "                   -*************************************************************-"
+
+    $AutodeskAppsVerifierPath = "\\ad.accoes.com\jobs\Staging\03-PROGRAMS\Orlando Programs\AutodeskAppsVerify\01 - January 2023 Update\AutodeskAppsVerify.cmd"
+
+    if (Test-Path $AutodeskAppsVerifierPath -ErrorAction SilentlyContinue) {
+        Write-Output "AutodeskAppsVerify.cmd is reachable, starting Autodesk Apps Verifier on is own window."
+        Start-Process $AutodeskAppsVerifierPath
+    }
+    else {
+        Write-Output "The 'AutodeskAppsVerify.cmd' is not reachable,`n Skipping this step."
+    }
+}
+#endregion
+
+#region 10- FinalDriveSpaceCheck
 $FinalDriveSpaceCheck_ScriptBlock = 
 {
     function FinalDriveSpaceCheck {
@@ -370,25 +433,6 @@ $FinalDriveSpaceCheck_ScriptBlock =
 }
     
 #endregion ==================================================================================================
-
-#region AutodeskAppsVerifier
-$AutodeskAppsVerifier_ScriptBlock =
-{
-    Write-Output "                   -*************************************************************-"
-    Write-Output "                   -***                  Final Drive Info:                    ***-"
-    Write-Output "                   -*************************************************************-"
-
-    $AutodeskAppsVerifierPath = "\\ad.accoes.com\jobs\Staging\03-PROGRAMS\Orlando Programs\AutodeskAppsVerify\01 - January 2023 Update\AutodeskAppsVerify.cmd"
-
-    if (Test-Path $AutodeskAppsVerifierPath -ErrorAction SilentlyContinue) {
-        Write-Output "AutodeskAppsVerify.cmd is reachable, starting Autodesk Apps Verifier on is own window."
-        Start-Process $AutodeskAppsVerifierPath
-    }
-    else {
-        Write-Output "The 'AutodeskAppsVerify.cmd' is not reachable,`n Skipping this step."
-    }
-}
-#endregion
 #############
 
 $ProcessAllScriptBlocksInBackgroundJobs = {
@@ -396,13 +440,13 @@ $ProcessAllScriptBlocksInBackgroundJobs = {
     $jobs = & {
         # Start jobs for each script block
         #$job1 = Start-Job -ScriptBlock $Get_CDriveSpace_ScriptBlock            
-        $job2 = Start-Job -ScriptBlock $Get_DisplayCount_ScriptBlock
-        $job3 = Start-Job -ScriptBlock $GetGPUDriverInfo_ScriptBlock
+        $job2 = Start-Job -ScriptBlock $GetGPUDriverInfo_ScriptBlock
+        $job3 = Start-Job -ScriptBlock $Get_DisplayCount_ScriptBlock
         $job4 = Start-Job -ScriptBlock $Get_AdskLicensingVersion_ScriptBlock
         $job5 = Start-Job -ScriptBlock $Formated_RevitFolderSizes_scriptBlock
         $job6 = Start-Job -ScriptBlock $Check_AutodeskOdisRegistry_scriptBlock
         $job7 = Start-Job -ScriptBlock $PowerCFG_Off_ScriptBlock
-        $job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
+        #$job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
         $job9 = Start-Job -ScriptBlock $AutodeskAppsVerifier_ScriptBlock
 
          #Return all the jobs
@@ -412,8 +456,8 @@ $ProcessAllScriptBlocksInBackgroundJobs = {
         $job4, 
         $job5,
         $job6,
-        $job7 
-        $job8, 
+        $job7,
+        #$job8, 
         $job9
     }
 
@@ -493,6 +537,8 @@ cls
 & $Get_CDriveSpace_ScriptBlock
 
 & $ProcessAllScriptBlocksInBackgroundJobs # <-- Background Jobs process
+
+& $DeleteAutodeskWI_ScriptBlock
 
 & $FinalDriveSpaceCheck_ScriptBlock
 
