@@ -350,6 +350,7 @@ $DeleteAutodeskWI_ScriptBlock =
                 Write-Host "Deleting: $FolderToDelete" -ForegroundColor Yellow
                 $DelThisFolder.Delete($true)  # Delete folder item with .NET Method
                 Write-Host "Folder deleted." -ForegroundColor Yellow
+                Start-Sleep -Seconds 2
             }
             else {
                 Write-Host "Folder deletion canceled." -ForegroundColor Yellow
