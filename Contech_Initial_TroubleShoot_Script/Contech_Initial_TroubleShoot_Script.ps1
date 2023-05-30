@@ -46,8 +46,8 @@ $Get_CDriveSpace_ScriptBlock =
 #region 2- Get-GPUDriverInfo
 $GetGPUDriverInfo_ScriptBlock = 
 {
-#https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/dpi-related-apis-and-registry-settings?view=windows-11
-Add-Type -TypeDefinition @"
+    #https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/dpi-related-apis-and-registry-settings?view=windows-11
+    Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
 
@@ -75,14 +75,13 @@ public class ResolutionUtils
 }
 "@
 
-# Declare variables for DPI values
-$horizontalDPI = 0
-$verticalDPI = 0
+    # Declare variables for DPI values
+    $horizontalDPI = 0
+    $verticalDPI = 0
 
 
-    function CalculateScaling ($CurrentVerticalResolution)
-    {
-       [Math]::Round( ($CurrentVerticalResolution / [int][System.Windows.Forms.SystemInformation]::VirtualScreen.Height) * 100, 2 ).ToString("0.##")
+    function CalculateScaling ($CurrentVerticalResolution) {
+        [Math]::Round( ($CurrentVerticalResolution / [int][System.Windows.Forms.SystemInformation]::VirtualScreen.Height) * 100, 2 ).ToString("0.##")
     }
 
     function Get-GPUDriverInfo {
@@ -101,16 +100,16 @@ $verticalDPI = 0
             CurrentNumberOfColors,
             CurrentRefreshRate,
             MaxRefreshRate,
-            @{Name = "Screen_Scale_Factor"; Expression = {(CalculateScaling $_.CurrentVerticalResolution)} },
-            PNPDeviceID | % { $_ ; "---"} | Out-String
+            @{Name = "Screen_Scale_Factor"; Expression = { (CalculateScaling $_.CurrentVerticalResolution) } },
+            PNPDeviceID | % { $_ ; "---" } | Out-String
         
         Start-Sleep -Seconds 2
         # Call the GetNativeResolution function
         [ResolutionUtils]::GetNativeResolution([ref]$horizontalDPI, [ref]$verticalDPI)
         
         # Display the results
-        $VideoResults +="Horizontal DPI: $horizontalDPI `n"
-        $VideoResults +="Vertical DPI: $verticalDPI"
+        $VideoResults += "Horizontal DPI: $horizontalDPI `n"
+        $VideoResults += "Vertical DPI: $verticalDPI"
 
 
         return $VideoResults
@@ -263,16 +262,19 @@ $Check_AutodeskOdisRegistry_scriptBlock =
         if (Test-Path -Path $registryPath) {
             $existingValue = Get-ItemProperty -Path $registryPath -Name $registryValueName -ErrorAction SilentlyContinue
             if ($existingValue -and $existingValue.$registryValueName -eq $registryValueData) {
+                Write-Output "Expected setting already set"
                 Write-Output "Existing value: HKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1."
             }
             else {
                 Set-ItemProperty -Path $registryPath -Name $registryValueName -Value $registryValueData
+                Write-Output "The key existed but did not have the expected setting."
                 Write-Output "Value updated: HKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1."
             }
         }
         else {
             New-Item -Path $registryPath -Force | Out-Null
             New-ItemProperty -Path $registryPath -Name $registryValueName -Value $registryValueData -PropertyType DWORD -Force | Out-Null
+            Write-Output "The key did not exist, created new key."
             Write-Output "Registry key and value added. `nHKCU\Software\Autodesk\ODIS /V DisableManualUpdateInstall /D 1"
         }
         Start-Sleep -Seconds 2
@@ -371,6 +373,24 @@ $FinalDriveSpaceCheck_ScriptBlock =
 }
     
 #endregion ==================================================================================================
+
+#region AutodeskAppsVerifier
+$AutodeskAppsVerifier_ScriptBlock =
+{
+    Write-Output "                   -*************************************************************-"
+    Write-Output "                   -***                  Final Drive Info:                    ***-"
+    Write-Output "                   -*************************************************************-"
+
+    $AutodeskAppsVerifierPath = "\\ad.accoes.com\jobs\Staging\03-PROGRAMS\Orlando Programs\AutodeskAppsVerify\01 - January 2023 Update\AutodeskAppsVerify.cmd"
+
+    if (Test-Path $AutodeskAppsVerifierPath -ErrorAction SilentlyContinue) {
+        Write-Output "AutodeskAppsVerify.cmd is reachable, starting Autodesk Apps Verifier on is own window."
+        & $AutodeskAppsVerifierPath
+    }
+    else {
+        Write-Output "The 'AutodeskAppsVerify.cmd' is not reachable,`n Skipping this step."
+    }
+}
 #############
 
 $ProcessAllScriptBlocksInBackgroundJobs = {
@@ -385,9 +405,10 @@ $ProcessAllScriptBlocksInBackgroundJobs = {
         $job6 = Start-Job -ScriptBlock $Check_AutodeskOdisRegistry_scriptBlock
         $job7 = Start-Job -ScriptBlock $PowerCFG_Off_ScriptBlock
         $job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
+        $job9 = Start-Job -ScriptBlock $AutodeskAppsVerifier_ScriptBlock
 
         # Return all the jobs
-        $job1, $job2, $job3, $job4, $job5, $job6, $job7, $job8
+        $job1, $job2, $job3, $job4, $job5, $job6, $job7, $job8, $job9
     }
 
     $colors = @('Green', 'Cyan')
