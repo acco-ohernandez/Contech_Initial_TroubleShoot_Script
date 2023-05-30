@@ -25,7 +25,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Content Include="Contech_Initial_TroubleShoot_Script_Launcher.cmd" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="Contech_Initial_TroubleShoot_Script.ps1" />
   </ItemGroup>

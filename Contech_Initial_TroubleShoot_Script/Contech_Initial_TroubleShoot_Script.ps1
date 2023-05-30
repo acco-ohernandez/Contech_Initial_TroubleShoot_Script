@@ -184,12 +184,12 @@ $Formated_RevitFolderSizes_scriptBlock = {
             "$env:LOCALAPPDATA\Autodesk\Revit\Autodesk Revit 2023\CollaborationCache",
             "$env:USERPROFILE\accdocs",
             "$env:USERPROFILE\Downloads",
-            "$env:USERPROFILE\Box\Box",
+            "$env:LOCALAPPDATA\Box\Box",
             "C:\Windows\IMECache",
             "C:\Autodesk"
             "C:\Autodesk\WI"
     
-    
+    $evn:Lo
     
         )
     
@@ -391,6 +391,7 @@ $AutodeskAppsVerifier_ScriptBlock =
         Write-Output "The 'AutodeskAppsVerify.cmd' is not reachable,`n Skipping this step."
     }
 }
+#endregion
 #############
 
 $ProcessAllScriptBlocksInBackgroundJobs = {
