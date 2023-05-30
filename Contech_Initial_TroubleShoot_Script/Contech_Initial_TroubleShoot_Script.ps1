@@ -8,6 +8,36 @@ $Log = "$env:TEMP\Log_$ScriptName`_$TimeString.txt"
 Start-Transcript $Log
 $Global:StartingUsedSpace = 0
 
+$WindowsInfo_ScriptBlock = {
+    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+
+    $osName = $osInfo.Name
+    $osVersion = $osInfo.Version
+    $osArchitecture = $osInfo.OSArchitecture
+    $osServicePack = $osInfo.ServicePackMajorVersion
+    $osBuildNumber = $osInfo.BuildNumber
+    $osInstallDate = $osInfo.InstallDate
+    $osLastBootUpTime = $osInfo.LastBootUpTime
+
+    $CompName = $env:COMPUTERNAME
+
+    # Create a custom object with the Windows version details
+    $windowsVersion = [PSCustomObject]@{
+        "ComputerName"    = $CompName
+        "OperatingSystem" = $osName
+        "Version"         = $osVersion
+        "Architecture"    = $osArchitecture
+        "ServicePack"     = $osServicePack
+        "BuildNumber"     = $osBuildNumber
+        "InstallDate"     = $osInstallDate
+        "LastBootUpTime"  = $osLastBootUpTime
+    }
+
+    # Output the Windows version details as an object
+    $windowsVersion
+
+}
+
 $InitalDriveInfoScriptBlock = {
     Write-Host "                   -*******************************************************************-" -ForegroundColor Green      
     Write-Host "                   -***                      Inital Drive Info:                     ***-" -ForegroundColor Green
@@ -452,7 +482,7 @@ $ProcessAllScriptBlocksInBackgroundJobs = {
         #$job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
         $job9 = Start-Job -ScriptBlock $AutodeskAppsVerifier_ScriptBlock
 
-         #Return all the jobs
+        #Return all the jobs
         #$job1, 
         $job2, 
         $job3,
@@ -535,6 +565,8 @@ $PromptTheUserToStartTheLogInMicrosoftEdge_ScriptBlock = {
 cls 
 #region ==================== Process all the scriptblocks ====================
   
+& $WindowsInfo_ScriptBlock
+
 & $InitalDriveInfoScriptBlock
 
 & $Get_CDriveSpace_ScriptBlock
