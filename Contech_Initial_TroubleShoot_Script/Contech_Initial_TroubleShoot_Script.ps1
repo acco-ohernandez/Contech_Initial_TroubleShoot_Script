@@ -6,13 +6,13 @@ $ScriptName = $MyInvocation.MyCommand.Name
 $ScriptPath = Split-Path -Parent -Path $script:MyInvocation.MyCommand.Path
 $Log = "$env:TEMP\Log_$ScriptName`_$TimeString.txt"
 Start-Transcript $Log
-
+$Global:StartingUsedSpace = 0
 $InitalDriveInfoScriptBlock = {
     Write-Host "                   -*******************************************************************-" -ForegroundColor Green      
     Write-Host "                   -***                      Inital Drive Info:                     ***-" -ForegroundColor Green
     Write-Host "                   -*******************************************************************-" -ForegroundColor Green
     $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
-    $StartingUsedSpace = $drive.Size - $drive.FreeSpace  # <-- This variable is used at the end to Get the spece clened up on the drvie.
+    $Global:StartingUsedSpace = $drive.Size - $drive.FreeSpace  # <-- This variable is used at the end to Get the spece clened up on the drvie.
 } 
 
 #region 1- Get-CDriveSpace
@@ -127,7 +127,7 @@ $Get_AdskLicensingVersion_ScriptBlock =
         Write-Output "                   -********************************************************************-"
         $filePath = "C:\Program Files (x86)\Common Files\Autodesk Shared\AdskLicensing\version.ini"
     
-        if (Test-Path $filePath) {
+        if (Test-Path $filePath -ErrorAction SilentlyContinue) {
             $content = Get-Content $filePath -Raw
             $versionPattern = "version=(\d+\.\d+\.\d+\.\d+)"
             $version = $content | Select-String -Pattern $versionPattern | ForEach-Object { $_.Matches.Groups[1].Value }
@@ -186,16 +186,13 @@ $Formated_RevitFolderSizes_scriptBlock = {
             "$env:USERPROFILE\Downloads",
             "$env:LOCALAPPDATA\Box\Box",
             "C:\Windows\IMECache",
-            "C:\Autodesk"
-            "C:\Autodesk\WI"
-    
-    $evn:Lo
-    
+            "C:\Autodesk",
+            "C:\Autodesk\WI"    
         )
     
         $folderSizes = foreach ($folder in $folders) {
-            if (Test-Path -Path $folder) {
-                $sizeInBytes = Get-ChildItem -Path $folder -Recurse | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum
+            if (Test-Path -Path $folder -ErrorAction SilentlyContinue) {
+                $sizeInBytes = Get-ChildItem -Path $folder -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum
                 $sizeInMB = [math]::Round($sizeInBytes / 1MB, 2)
                 $sizeInGB = [math]::Round($sizeInBytes / 1GB, 2)
                 [PSCustomObject]@{
@@ -259,7 +256,7 @@ $Check_AutodeskOdisRegistry_scriptBlock =
         $registryValueName = "DisableManualUpdateInstall"
         $registryValueData = 1
         
-        if (Test-Path -Path $registryPath) {
+        if (Test-Path -Path $registryPath -ErrorAction SilentlyContinue) {
             $existingValue = Get-ItemProperty -Path $registryPath -Name $registryValueName -ErrorAction SilentlyContinue
             if ($existingValue -and $existingValue.$registryValueName -eq $registryValueData) {
                 Write-Output "Expected setting already set"
@@ -358,7 +355,7 @@ $FinalDriveSpaceCheck_ScriptBlock =
         $outputString += "                   -*************************************************************-`n"
         $drive = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'"
         $EndingUsedSpace = $drive.Size - $drive.FreeSpace
-        $crearedSpace = $($StartingUsedSpace - $EndingUsedSpace)
+        $crearedSpace = $($Global:StartingUsedSpace - $EndingUsedSpace)
 
         $CleanedSpace = [PSCustomObject]@{
             ClearedSpace_MB = [math]::Round($crearedSpace / 1MB, 2)
@@ -385,7 +382,7 @@ $AutodeskAppsVerifier_ScriptBlock =
 
     if (Test-Path $AutodeskAppsVerifierPath -ErrorAction SilentlyContinue) {
         Write-Output "AutodeskAppsVerify.cmd is reachable, starting Autodesk Apps Verifier on is own window."
-        & $AutodeskAppsVerifierPath
+        Start-Process $AutodeskAppsVerifierPath
     }
     else {
         Write-Output "The 'AutodeskAppsVerify.cmd' is not reachable,`n Skipping this step."
@@ -408,8 +405,16 @@ $ProcessAllScriptBlocksInBackgroundJobs = {
         $job8 = Start-Job -ScriptBlock $DeleteAutodeskWI_ScriptBlock
         $job9 = Start-Job -ScriptBlock $AutodeskAppsVerifier_ScriptBlock
 
-        # Return all the jobs
-        $job1, $job2, $job3, $job4, $job5, $job6, $job7, $job8, $job9
+         #Return all the jobs
+        #$job1, 
+        $job2, 
+        $job3,
+        $job4, 
+        $job5,
+        $job6,
+        $job7 
+        $job8, 
+        $job9
     }
 
     $colors = @('Green', 'Cyan')
