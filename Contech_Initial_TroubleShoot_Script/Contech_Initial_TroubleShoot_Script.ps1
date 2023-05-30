@@ -7,6 +7,7 @@ $ScriptPath = Split-Path -Parent -Path $script:MyInvocation.MyCommand.Path
 $Log = "$env:TEMP\Log_$ScriptName`_$TimeString.txt"
 Start-Transcript $Log
 $Global:StartingUsedSpace = 0
+
 $InitalDriveInfoScriptBlock = {
     Write-Host "                   -*******************************************************************-" -ForegroundColor Green      
     Write-Host "                   -***                      Inital Drive Info:                     ***-" -ForegroundColor Green
@@ -192,7 +193,7 @@ $Formated_RevitFolderSizes_scriptBlock = {
     
         $folderSizes = foreach ($folder in $folders) {
             if (Test-Path -Path $folder -ErrorAction SilentlyContinue) {
-                $sizeInBytes = Get-ChildItem -Path $folder -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum | Select-Object -ExpandProperty Sum
+                $sizeInBytes = Get-ChildItem -Path $folder -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Sum
                 $sizeInMB = [math]::Round($sizeInBytes / 1MB, 2)
                 $sizeInGB = [math]::Round($sizeInBytes / 1GB, 2)
                 [PSCustomObject]@{
@@ -337,6 +338,7 @@ $DeleteAutodeskWI_ScriptBlock =
             
             
             # Display message box prompt to ask user for confirmation
+            Add-Type -AssemblyName PresentationFramework
             $result = [System.Windows.MessageBox]::Show(
                 "Do you want to delete this folder?`n $FolderToDelete",
                 "Delete Folder",
