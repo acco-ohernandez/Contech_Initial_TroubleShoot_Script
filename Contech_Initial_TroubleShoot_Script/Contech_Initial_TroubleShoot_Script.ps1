@@ -281,7 +281,7 @@ $Check_AutodeskOdisRegistry_scriptBlock =
 {
     function Check-AutodeskOdisRegistry {
         Write-Output "                   -********************************************************************-"
-        Write-Output "                   -***                  Autodesk ODIS Registry Info:                ***-"
+        Write-Output "                   -***                 Autodesk Access Registry Info:               ***-"
         Write-Output "                   -********************************************************************-"
         $registryPath = "HKCU:\SOFTWARE\Autodesk\ODIS"
         $registryValueName = "DisableManualUpdateInstall"
@@ -428,7 +428,8 @@ $AutodeskAppsVerifier_ScriptBlock =
     Write-Output "                   -***                  Final Drive Info:                    ***-"
     Write-Output "                   -*************************************************************-"
 
-    $AutodeskAppsVerifierPath = "\\ad.accoes.com\jobs\Staging\03-PROGRAMS\Orlando Programs\AutodeskAppsVerify\01 - January 2023 Update\AutodeskAppsVerify.cmd"
+    $AutodeskAppsVerifierPath = 
+    "\\ad.accoes.com\jobs\Library\SOFTWARE\01-Admin\08-BIMTECH FOLDER\AutodeskAppsVerify\AutodeskAppsVerify.cmd"
 
     if (Test-Path $AutodeskAppsVerifierPath -ErrorAction SilentlyContinue) {
         Write-Output "AutodeskAppsVerify.cmd is reachable, starting Autodesk Apps Verifier on is own window."
