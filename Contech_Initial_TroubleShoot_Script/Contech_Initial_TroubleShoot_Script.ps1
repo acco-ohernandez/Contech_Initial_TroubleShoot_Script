@@ -162,6 +162,8 @@ $Get_DisplayCount_ScriptBlock =
         Start-Sleep -Seconds 2
     }
     Get-DisplayCount | Out-String | Select-Object -ExcludeProperty RunspaceId 
+    # Open Windows Display Settings
+    explorer.exe ms-settings:display
 }
 #endregion ==================================================================================================
 
