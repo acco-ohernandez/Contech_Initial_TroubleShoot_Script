@@ -170,6 +170,26 @@ $Get_DisplayCount_ScriptBlock =
 #region 4 - Get-AdskLicensingVersion
 $Get_AdskLicensingVersion_ScriptBlock = 
 {
+    function Get-AdskLincensingServiceVersion # This function gets invoked from the Get-AdskLicensingVersion function
+    {
+        # Get the AdskLicensingService.exe file version if it exists
+        $AdskLicensingServiceExe =  'C:\Program Files (x86)\Common Files\Autodesk Shared\AdskLicensing\Current\AdskLicensingService\AdskLicensingService.exe'
+        $ADLS_Ver = "-"
+        if(Test-Path $AdskLicensingServiceExe -ErrorAction SilentlyContinue)
+        {   
+            # format the string with double backslashes for the wmi filter Name
+            $wmipath = $AdskLicensingServiceExe.Replace('\','\\')
+            # If the AdskLicensingService.exe exists, update the variable $ADLS_Ver with its version
+            $ADLS_Ver = (Get-CimInstance -Class Cim_DataFile -Filter "Name='$wmipath'").Version
+            return $ADLS_Ver
+        }
+        else
+        {
+            $ADLS_Ver = "N/A"
+            return $ADLS_Ver
+        }
+    }
+
     function Get-AdskLicensingVersion {
         Write-Output "                   -********************************************************************-"
         Write-Output "                   -***                 Adsk Licensing Version Info:                 ***-"
@@ -183,18 +203,21 @@ $Get_AdskLicensingVersion_ScriptBlock =
     
             if ($version) {
                 $result = [PSCustomObject]@{
-                    AdskLicensingVersion = $version
+                    ADLI_Ver = $version   # installer version "AdskLicensingVersion"
+                    ADLS_Ver = Get-AdskLincensingServiceVersion
                 }
             }
             else {
                 $result = [PSCustomObject]@{
-                    AdskLicensingVersion = "No version information found in the file."
+                    ADLI_Ver = "No version information found in the file."
+                    ADLS_Ver = Get-AdskLincensingServiceVersion
                 }
             }
         }
         else {
             $result = [PSCustomObject]@{
-                AdskLicensingVersion = "No AdskLicensing file found: $filePath"
+                ADLI_Ver = "No AdskLicensing file found: $filePath"
+                ADLS_Ver = Get-AdskLincensingServiceVersion
             }
         }
         Start-Sleep -Seconds 2
